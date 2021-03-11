@@ -2,7 +2,7 @@ import numpy as np
 from scipy.linalg import pascal
 from matplotlib import pyplot as plt
 
-class Bezier:
+class Bezier2D:
     def __init__(self, order):
         self.order = order
         self.C = self.__compCoeffsBernstein(order)
@@ -20,13 +20,13 @@ class Bezier:
         return np.matmul(np.matmul(self.Q,self.C),tVec)
 
     def evalJet(self,t):
-        vCurve = Bezier(self.order-1)
+        vCurve = Bezier2D(self.order-1)
         vPts = np.diff(self.Q, axis=1)
         vCurve.setControlPoints(vPts)
         return vCurve.eval(t)
 
     def evalJet2(self,t):
-        aCurve = Bezier(self.order-2)
+        aCurve = Bezier2D(self.order-2)
         vPts = np.diff(self.Q, axis=1)
         aPts = np.diff(vPts, axis=1)
         aCurve.setControlPoints(aPts)
@@ -83,16 +83,14 @@ class Bezier:
             tC = B1 * np.tile(endCol, (n+1,1))
         return tC
 
-
-def costFunction(path):
-    # Cost function of 2-3 terms: (max?) curvature, length, and "agreeance"
+def costFunctionCurvDev(path):
+    # Cost function of 4 terms: total curvature, curvature variance, length, and speed variance
     dt = 0.01
     t = np.arange(0, 1, dt) # time step for evaulating cost
 
     # Cost Function Weights
     Kcurv = 1
     Klength = 500
-    #Kagree = 1
     KcurvDev = 1
     Kspddev = 1
 
@@ -107,4 +105,39 @@ def costFunction(path):
 
     curvDev = np.nanvar(k)
 
+    return Kcurv*totalCurv + Klength*pathLength + KcurvDev*curvDev + Kspddev*spddev
+    
+def costFunctionAgree(path):
+    # Cost function of 4 terms: total curvature, 'agreeance', length, and speed variance
+    dt = 0.01
+    t = np.arange(0, 1, dt) # time step for evaulating cost
 
+    # Cost Function Weights
+    Kcurv = 1
+    Klength = 500
+    Kagree = 1
+    Kspddev = 1
+
+    v = path.evalJet(t)
+    speeds = np.linalg.norm(v, 2, 0)
+    pathLength = dt*np.nansum(speeds)
+
+    spddev = np.nanvar(speeds)
+
+    k = path.evalCurv(t)
+    totalCurv = np.nansum(np.power(k,2))
+    startVec = path.Q[:,1] - path.Q[:,0]
+    endVec = path.Q[:,3] - path.Q[:,2]
+
+    startAngle = np.arctan2(startVec[1], startVec[0])
+    endAngle = np.arctan2(endVec[1], endVec[0])
+    angles = np.linspace(startAngle, endAngle, np.shape(t)[0])
+    vecs = np.vstack((np.cos(angles),np.sin(angles)))
+    ramp = np.linspace(1, 0, int(len(t)/10))
+    weight = np.concatenate((ramp, np.zeros((np.shape(t)[0] - 2*np.shape(ramp)[0])), np.flip(ramp)))
+
+    agree = np.sum(angles*weight*v/speeds)
+
+    return Kcurv*totalCurv + Klength*pathLength + Kagree*agree + Kspddev*spddev
+
+def generateCurveParameterization(start, end, d1, d2):
