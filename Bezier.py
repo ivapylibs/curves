@@ -1,6 +1,9 @@
-import numpy as np
+#import numpy as np # For basic use
+import jax.numpy as np # For use with optimization
 from scipy.linalg import pascal
 from matplotlib import pyplot as plt
+import pdb
+
 
 class Bezier2D:
     def __init__(self, order):
@@ -21,14 +24,14 @@ class Bezier2D:
 
     def evalJet(self,t):
         vCurve = Bezier2D(self.order-1)
-        vPts = np.diff(self.Q, axis=1)
+        vPts = self.order * np.diff(self.Q, axis=1)
         vCurve.setControlPoints(vPts)
         return vCurve.eval(t)
 
     def evalJet2(self,t):
         aCurve = Bezier2D(self.order-2)
-        vPts = np.diff(self.Q, axis=1)
-        aPts = np.diff(vPts, axis=1)
+        vPts = self.order*np.diff(self.Q, axis=1)
+        aPts = (self.order-1)*np.diff(vPts, axis=1)
         aCurve.setControlPoints(aPts)
         return aCurve.eval(t)
 
@@ -40,10 +43,6 @@ class Bezier2D:
         if(dimension == 1):
             raise RuntimeError('Curvature cannot be calculated for 1D curves')
         elif (dimension == 2):
-            '''
-            _v = np.concatenate((v,np.zeros((1,len(t)))), 0)
-            _a = np.concatenate((a,np.zeros((1,len(t)))), 0)
-            '''
             return np.divide(np.cross(v, a, 0, 0), (np.linalg.norm(v,2,0)**3))
         '''
         case 3 % plot control points in 3D.
@@ -140,4 +139,12 @@ def costFunctionAgree(path):
 
     return Kcurv*totalCurv + Klength*pathLength + Kagree*agree + Kspddev*spddev
 
-def generateCurveParameterization(start, end, d1, d2):
+def generateBezierParam(start, end, d):
+    startDir = start.getRotation()[:,0]
+    endDir = end.getRotation()[:,0]
+    pos2 = start.getTranslation() + startDir * d[0]
+    pos3 = end.getTranslation() - endDir * d[1]
+    b = Bezier2D(3)
+    pts = np.vstack((start.getTranslation(), pos2, pos3, end.getTranslation()))
+    b.setControlPoints(pts.T)
+    return b

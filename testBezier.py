@@ -1,5 +1,6 @@
 import numpy as np
 import Bezier
+from Lie import SE2
 
 b = Bezier.Bezier2D(3)
 
@@ -18,6 +19,18 @@ x = b.eval(t)
 v = b.evalJet(t)
 a = b.evalJet2(t)
 k = b.evalCurv(t)
+
+
+
+start = SE2()
+
+theta = np.pi/3
+R = SE2.rotationMatrix(theta)
+x = np.array([[5], [4]])
+
+end = SE2(R=R, x=x)
+
+c = Bezier.generateBezierParam(start, end, [2,1])
 
 print(Bezier.costFunctionCurvDev(b))
 print(Bezier.costFunctionAgree(b))
