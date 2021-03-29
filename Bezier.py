@@ -1,5 +1,5 @@
-#import numpy as np # For basic use
-import jax.numpy as np # For use with optimization
+import numpy as np # For basic use
+#import jax.numpy as np # For use with optimization
 from scipy.linalg import pascal
 from matplotlib import pyplot as plt
 import pdb
@@ -48,6 +48,13 @@ class Bezier2D:
         case 3 % plot control points in 3D.
         curv = vecnorm(cross(v,a),2,1) ./ (vecnorm(v,2,1).^3);
         '''
+
+    def plot(self):
+        plt.plot(self.Q[0,:], self.Q[1,:], 'r--')
+
+    def plotCurve(self, t):
+        pts = self.eval(t)
+        plt.plot(pts[0, :], pts[1,:])
 
     def __compCoeffsBernstein(self, n):
         if (n == 4):

@@ -6,36 +6,46 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(1, './') #TODO: Installation for bezier curve library
 import Bezier
+from Lie import SE2
 
 
 # ################################## factor ####################################
 
 # exp curve fitting factor
 class BezierCurveFactor(minisam.NumericalFactor):
-    # ctor
-    def __init__(self, key, point, loss):
+    def __init__(self, key, start, end, loss):
         minisam.NumericalFactor.__init__(self, 1, [key], loss)
-        self.p_ = point
+        self._start = start
+        self._end = end
 
     # make a deep copy
     def copy(self):
-        return ExpCurveFittingFactor(self.keys()[0], self.p_, self.lossFunction())
+        return BezierCurveFactor(self.keys()[0], self._start, self._end, self.lossFunction())
 
-    # error = y - exp(m * x + c);
+    # error = Bezier cost function
     def error(self, variables):
         params = variables.at(self.keys()[0])
-        return np.array([self.p_[1] - np.exp(params[0] * self.p_[0] + params[1])])
+        b = Bezier.generateBezierParam(self._start, self._end, params)
+        return np.array([Bezier.costFunctionCurvDev(b)])
 
 
-loss=minisam.CauchyLoss.Cauchy(1.0)
-#loss=None
+#loss=minisam.CauchyLoss.Cauchy(1.0)
+loss=None
+
+start = SE2()
+
+theta = np.pi/3
+R = SE2.rotationMatrix(theta)
+x = np.array([[3], [15]])
+
+end = SE2(R=R, x=x)
 
 graph=minisam.FactorGraph()
 
-graph.add(ExpCurveFittingFactor(minisam.key('p', 0), pair, loss))
+graph.add(BezierCurveFactor(minisam.key('p', 0), start, end, loss))
 
 init_values = minisam.Variables()
-init_values.add(minisam.key('p', 0), np.array([0,0]))
+init_values.add(minisam.key('p', 0), np.array([1,1]))
 
 print("initial curve parameters :", init_values.at(minisam.key('p', 0)))
 
@@ -47,3 +57,13 @@ values = minisam.Variables()
 status = opt.optimize(graph, init_values, values)
 
 print("opitmized curve parameters :", values.at(minisam.key('p', 0)))
+
+b = Bezier.generateBezierParam(start, end, values.at(minisam.key('p', 0)))
+
+dt = 0.01
+t = np.arange(0, 1, dt)
+
+b.plot()
+b.plotCurve(t)
+
+plt.show()
