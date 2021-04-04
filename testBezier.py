@@ -1,8 +1,9 @@
 import numpy as np
 import Bezier
 from Lie import SE2
+from matplotlib import pyplot as plt
 
-b = Bezier.Bezier2D(3)
+b = Bezier.Bezier(3)
 
 start = np.array([[0],[0]])
 end = np.array([[5],[5]])
@@ -30,7 +31,7 @@ x = np.array([[5], [4]])
 
 end = SE2(R=R, x=x)
 
-c = Bezier.generateBezierParam(start, end, [2,1])
-
-print(Bezier.costFunctionCurvDev(b))
-print(Bezier.costFunctionAgree(b))
+c = Bezier.constructBezierPath(start, end, 3, [2,1])
+c.plot()
+c.plotCurve(np.linspace(0,1,100))
+plt.show()

@@ -1,14 +1,12 @@
 import numpy as np # For basic use
-#import jax.numpy as np # For use with optimization
 from scipy.linalg import pascal
 from matplotlib import pyplot as plt
-import pdb
 
 
-class Bezier2D:
+class Bezier:
     def __init__(self, order):
         self.order = order
-        self.C = self.__compCoeffsBernstein(order)
+        self._C = self.__compCoeffsBernstein(order)
 
     def setControlPoints(self, points):
         if(np.shape(points)[1] != self.order + 1):
@@ -20,16 +18,16 @@ class Bezier2D:
         #if(len(np.shape(t)) == 1):
             # Do something?
         tVec = np.tile(t, (self.order+1,1)) ** np.tile((np.arange(0,self.order+1)[:, np.newaxis]), (1, len(t)))
-        return np.matmul(np.matmul(self.Q,self.C),tVec)
+        return np.matmul(np.matmul(self.Q,self._C),tVec)
 
     def evalJet(self,t):
-        vCurve = Bezier2D(self.order-1)
+        vCurve = Bezier(self.order-1)
         vPts = self.order * np.diff(self.Q, axis=1)
         vCurve.setControlPoints(vPts)
         return vCurve.eval(t)
 
     def evalJet2(self,t):
-        aCurve = Bezier2D(self.order-2)
+        aCurve = Bezier(self.order-2)
         vPts = self.order*np.diff(self.Q, axis=1)
         aPts = (self.order-1)*np.diff(vPts, axis=1)
         aCurve.setControlPoints(aPts)
@@ -44,13 +42,9 @@ class Bezier2D:
             raise RuntimeError('Curvature cannot be calculated for 1D curves')
         elif (dimension == 2):
             return np.divide(np.cross(v, a, 0, 0), (np.linalg.norm(v,2,0)**3))
-        '''
-        case 3 % plot control points in 3D.
-        curv = vecnorm(cross(v,a),2,1) ./ (vecnorm(v,2,1).^3);
-        '''
 
     def plot(self):
-        plt.plot(self.Q[0,:], self.Q[1,:], 'r--')
+        plt.plot(self.Q[0,:], self.Q[1,:],'r--', marker='o')
 
     def plotCurve(self, t):
         pts = self.eval(t)
@@ -89,69 +83,29 @@ class Bezier2D:
             tC = B1 * np.tile(endCol, (n+1,1))
         return tC
 
-def costFunctionCurvDev(path):
-    # Cost function of 4 terms: total curvature, curvature variance, length, and speed variance
-    dt = 0.01
-    t = np.arange(0, 1, dt) # time step for evaulating cost
 
-    # Cost Function Weights
-    Kcurv = 1
-    Klength = 500
-    KcurvDev = 1
-    Kspddev = 1
+def constructBezierPath(startPose, endPose, order, param):
+    #constructBezierPath uses parameterization to define bezier curve
+    # param[0] = delta_0
+    # param[1] = delta_1
+    # param[2:] = points of each subsequent control point
 
-    v = path.evalJet(t)
-    speeds = np.linalg.norm(v, 2, 0)
-    pathLength = dt*np.nansum(speeds)
+    dimension = len(startPose.getTranslation())
+    if(len(param) != 2+dimension*(order - 3)):
+        raise RuntimeError("Number of control points is incorrect")
+    pts = np.empty((1,1))
+    b = Bezier(order)
 
-    spddev = np.nanvar(speeds)
+    if(order == 3): # 3rd Order curve with 2 free points
+        pos2 = startPose * ( param[0] * np.array([1,0])) 
+        pos3 = endPose   * (-param[1] * np.array([1,0]))
+        pts = np.hstack((startPose.getTranslation(), pos2, pos3, endPose.getTranslation()))
 
-    k = path.evalCurv(t)
-    totalCurv = np.nansum(np.power(k,2))
+    elif(order > 3):
+        d1 = startPose * ( param[0] * np.array([1,0]))
+        posmid = np.reshape(param[2:], (2, order-3))
+        d2 = endPose   * (-param[1] * np.array([1,0]))
+        pts = np.hstack((startPose.getTranslation(), d1, posmid, d2, endPose.getTranslation()))
 
-    curvDev = np.nanvar(k)
-
-    return Kcurv*totalCurv + Klength*pathLength + KcurvDev*curvDev + Kspddev*spddev
-    
-def costFunctionAgree(path):
-    # Cost function of 4 terms: total curvature, 'agreeance', length, and speed variance
-    dt = 0.01
-    t = np.arange(0, 1, dt) # time step for evaulating cost
-
-    # Cost Function Weights
-    Kcurv = 1
-    Klength = 500
-    Kagree = 1
-    Kspddev = 1
-
-    v = path.evalJet(t)
-    speeds = np.linalg.norm(v, 2, 0)
-    pathLength = dt*np.nansum(speeds)
-
-    spddev = np.nanvar(speeds)
-
-    k = path.evalCurv(t)
-    totalCurv = np.nansum(np.power(k,2))
-    startVec = path.Q[:,1] - path.Q[:,0]
-    endVec = path.Q[:,3] - path.Q[:,2]
-
-    startAngle = np.arctan2(startVec[1], startVec[0])
-    endAngle = np.arctan2(endVec[1], endVec[0])
-    angles = np.linspace(startAngle, endAngle, np.shape(t)[0])
-    vecs = np.vstack((np.cos(angles),np.sin(angles)))
-    ramp = np.linspace(1, 0, int(len(t)/10))
-    weight = np.concatenate((ramp, np.zeros((np.shape(t)[0] - 2*np.shape(ramp)[0])), np.flip(ramp)))
-
-    agree = np.sum(angles*weight*v/speeds)
-
-    return Kcurv*totalCurv + Klength*pathLength + Kagree*agree + Kspddev*spddev
-
-def generateBezierParam(start, end, d):
-    startDir = start.getRotation()[:,0]
-    endDir = end.getRotation()[:,0]
-    pos2 = start.getTranslation() + startDir * d[0]
-    pos3 = end.getTranslation() - endDir * d[1]
-    b = Bezier2D(3)
-    pts = np.vstack((start.getTranslation(), pos2, pos3, end.getTranslation()))
-    b.setControlPoints(pts.T)
+    b.setControlPoints(pts)
     return b
