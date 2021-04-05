@@ -12,7 +12,7 @@ from time import perf_counter
 vMin =  5
 vMax = 10
 maxG = 4
-tf   = 1
+tf   = 2
 order = 4
 
 
@@ -29,6 +29,7 @@ gf = SE2(x=r*np.array([[np.cos(the)],[np.sin(the)]]), R=SE2.rotationMatrix(the+p
 optS = FlightOptParams(init=5, final=3)
 
 fp1 = Flight2D(gi, gf, order, tf, optParams=optS)
+fp2 = Flight2D(gi, gf, order, tf, optParams=optS)
 
 
 
@@ -36,14 +37,31 @@ tic = perf_counter()
 fp1.optimizeBezierPath()
 toc = perf_counter()
 
+fp2.optimizeBezierPath()
+
 t = np.linspace(0, tf, 100)
 
 fp1.bezier.plot()
 fp1.plotCurve()
+plt.title("Curve")
 
-print("Optimization took: ", toc-tic, " seconds")
+print("Path optimization took: ", toc-tic, " seconds")
+
+fp1.setDynConstraints(vMin, vMax, maxG)
+fp2.setDynConstraints(vMin, vMax, maxG)
+
+tic = perf_counter()
+fp1.optimizeTimePoly()
+toc = perf_counter()
+print("Time optimization took: ", toc-tic, " seconds")
 
 plt.figure()
-v = fp1.bezier.evalJet(t)
-plt.plot(t,np.linalg.norm(v, 2, 0))
+plt.title("Speed")
+v = fp1.evalVel(t)
+print(np.cumsum(v[0,:])*(tf/100))
+
+v2 = fp2.evalVel(t)
+plt.plot(t,np.linalg.norm(v, 2, 0), 'r-')
+plt.plot(t,np.linalg.norm(v2, 2, 0), 'b-')
+plt.legend(['Optimized', 'Un-optimized'])
 plt.show()

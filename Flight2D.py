@@ -1,6 +1,7 @@
 import numpy as np
 import Bezier
 from Lie import SE2
+from matplotlib import pyplot as plt
 
 import minisam
 
@@ -47,6 +48,27 @@ class BezierCurveFactor(minisam.NumericalFactor):
         b = Bezier.constructBezierPath(self._start, self._end, self._order, params)
         return np.array([Flight2D.BezierCostFunction(b, self.optParams)])
 
+class TimePolyFactor(minisam.NumericalFactor):
+    def __init__(self, key, curve, minSpd, maxSpd, maxGs, loss):
+        minisam.NumericalFactor.__init__(self, 1, [key], loss)
+        self._curve = curve
+        self._minSpd = minSpd
+        self._maxSpd = maxSpd
+        self._maxGs = maxGs
+        self._loss = loss
+
+    # make a deep copy
+    def copy(self):
+        return TimePolyFactor(self.keys()[0], self._curve, self._minSpd, self._maxSpd, self._maxGs, self._loss)
+
+    # error = Bezier cost function
+    def error(self, variables):
+        my_params = variables.at(self.keys()[0])
+        coeffs = Flight2D.gen5thTimePoly(my_params)
+        cost = Flight2D.TimeCostFunction(self._curve, coeffs, self._minSpd, self._maxSpd, self._maxGs)
+        return np.array([cost])
+
+
 class Flight2D:
     def __init__(self, startPose:SE2, endPose:SE2, bezierOrder=3, duration=1, optParams=FlightOptParams()):
         self.startPose = startPose
@@ -57,11 +79,12 @@ class Flight2D:
         self.timePolyCoeffs = np.array([0, 0, 0, 0, 1, 0]) # By default, polynomial does not change s input
 
     def constructBezierPath(self, param):
+        # Changes based on dimension
         #constructBezierPath uses parameterization to define bezier curve
         pts = np.empty((2,self.bezier.order+1))
 
         if(self.bezier.order == 3): # 3rd Order curve with 2 free points
-            pos2 = self.startPose * ( param[0] * np.array([1,0])) 
+            pos2 = self.startPose * ( param[0] * np.array([1,0]))  
             pos3 = self.endPose   * (-param[1] * np.array([1,0]))
             pts = np.hstack((self.startPose.getTranslation(), pos2, pos3, self.endPose.getTranslation()))
 
@@ -115,6 +138,41 @@ class Flight2D:
                 self.bezier = Bezier.constructBezierPath(self.startPose, self.endPose,
                     self.bezier.order, values.at(minisam.key('p', 0)))
 
+    @staticmethod
+    def gen5thTimePoly(cVec):
+        poly = np.zeros((6,))
+        poly[1] = 1
+        poly[2:4] = cVec
+        '''
+        poly[4] = -3*poly[2] - 2*poly[3]
+        poly[5] = 1-np.sum(poly[0:4])
+        '''
+        beta = np.matmul(np.linalg.inv(np.array([[4, 5], [1,1]])), np.array([[-2*cVec[0] - 3*cVec[1]], [-cVec[0] - cVec[1]]]))
+        poly[4:6] = beta[:,0]
+        poly = np.flip(poly)
+        return poly
+
+    def setDynConstraints(self, minSpd, maxSpd, maxGs):
+        self.minSpd = minSpd
+        self.maxSpd = maxSpd
+        self.maxGs = maxGs
+
+    def optimizeTimePoly(self):
+        graph=minisam.FactorGraph() 
+        #loss = minisam.CauchyLoss.Cauchy(0.) # TODO: Options Struct
+        loss= None
+        graph.add(TimePolyFactor(minisam.key('p', 0), self.bezier, self.minSpd, self.maxSpd, self.maxGs, loss))
+
+        init_values = minisam.Variables()
+
+        opt_param = minisam.LevenbergMarquardtOptimizerParams()
+        #opt_param.verbosity_level = minisam.NonlinearOptimizerVerbosityLevel.ITERATION
+        opt = minisam.LevenbergMarquardtOptimizer(opt_param)
+        values = minisam.Variables()
+        init_values.add(minisam.key('p', 0), np.ones((2,)))
+
+        opt.optimize(graph, init_values, values)
+        self.timePolyCoeffs = Flight2D.gen5thTimePoly(values.at(minisam.key('p', 0)))
 
     # In this function we use the time polynomial to "Stretch" s which is progress from 0-1
     def evalTimePoly(self, s):
@@ -127,16 +185,17 @@ class Flight2D:
         (s, dsdt) = self.evalTimePoly(t / self.duration)
         return self.bezier.eval(s)
 
-    # same as position but for velocity
+    # same as evalPos but for velocity
     def evalVel(self, t):
         (s, dsdt) = self.evalTimePoly(t / self.duration)
-        vs = self.bezier.evalJet(s)
-        vs /= self.duration
-        return vs * dsdt
+        vs = (self.bezier.evalJet(s) * dsdt) / self.duration
+        return vs
 
     def plotCurve(self):
-        t = np.linspace(0,1,100)
-        self.bezier.plotCurve(t)
+        t = np.linspace(0,self.duration,100)
+        x = (self.evalPos(t)).T
+        x = x.T
+        plt.plot(x[0,:] ,x[1,:])
 
     @staticmethod
     def BezierCostFunction(path:Bezier, optParams:FlightOptParams):
@@ -178,5 +237,34 @@ class Flight2D:
 
             agree = np.sum(angles*weight*v/(speeds + optParams.rho))
             cost += optParams.Wkdev * agree
+
+        return cost
+    
+    @staticmethod
+    def TimeCostFunction(path:Bezier, timePolyCoeffs, minSpd, maxSpd, maxGs):
+        # Cost function of 4 terms: total curvature, curvature variance, length, and speed variance
+        dt = 0.01
+        t = np.arange(0, 1, dt) # time step for evaulating cost
+        tau = np.polyval(timePolyCoeffs, t)
+        tauPrime = np.polyval(np.polyder(timePolyCoeffs), t)
+
+        v = path.evalJet(tau)
+        speeds = np.linalg.norm(v, 2, 0) * tauPrime # Speed in real units
+
+
+        cost = 0
+
+        k = path.evalCurv(tau) # Curvature
+        ac = np.power(speeds,2)*k # Centripetal Acceleration
+
+        Wvel = 100
+        Wk = 5
+
+
+        if(Wvel > 0):
+            cost += Wvel*np.sum(np.power(speeds - 0.5*(minSpd + maxSpd), 2))
+
+        if(Wk > 0):
+            cost += Wk * np.sum(np.power(ac, 2))
 
         return cost
