@@ -1,6 +1,7 @@
 import numpy as np # For basic use
 from scipy.linalg import pascal
 from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
 class Bezier:
@@ -43,12 +44,20 @@ class Bezier:
         elif (dimension == 2):
             return np.divide(np.cross(v, a, 0, 0), (np.linalg.norm(v,2,0)**3))
 
-    def plot(self):
-        plt.plot(self.Q[0,:], self.Q[1,:],'r--', marker='o')
+    def plot(self, axes=None):
+        dimension = len(self.Q[:,0])
+        if(dimension == 2):
+            plt.plot(self.Q[0,:], self.Q[1,:],'r--', marker='o')
+        elif(dimension == 3):
+            axes.plot3D(xs=self.Q[0,:], ys=self.Q[1,:], zs=self.Q[2,:], marker='o')
 
-    def plotCurve(self, t):
+    def plotCurve(self, t, axes=None):
+        dimension = len(self.Q[:,0])
         pts = self.eval(t)
-        plt.plot(pts[0, :], pts[1,:])
+        if(dimension == 2):
+            plt.plot(pts[0, :], pts[1,:])
+        elif(dimension == 3):
+            axes.plot3D(pts[0, :], pts[1,:], pts[2,:])
 
     def __compCoeffsBernstein(self, n):
         if (n == 4):
@@ -95,16 +104,20 @@ def constructBezierPath(startPose, endPose, order, param):
         raise RuntimeError("Number of control points is incorrect")
     pts = np.empty((1,1))
     b = Bezier(order)
+    unit = np.zeros((dimension,))
+    unit[0] = 1
 
     if(order == 3): # 3rd Order curve with 2 free points
-        pos2 = startPose * ( param[0] * np.array([1,0])) 
-        pos3 = endPose   * (-param[1] * np.array([1,0]))
+        unit = np.zeros((dimension,))
+        unit[0] = 1
+        pos2 = startPose * ( param[0] * unit)
+        pos3 = endPose   * (-param[1] * unit)
         pts = np.hstack((startPose.getTranslation(), pos2, pos3, endPose.getTranslation()))
 
     elif(order > 3):
-        d1 = startPose * ( param[0] * np.array([1,0]))
+        d1 = startPose * ( param[0] * unit)
         posmid = np.reshape(param[2:], (2, order-3))
-        d2 = endPose   * (-param[1] * np.array([1,0]))
+        d2 = endPose   * (-param[1] * unit)
         pts = np.hstack((startPose.getTranslation(), d1, posmid, d2, endPose.getTranslation()))
 
     b.setControlPoints(pts)

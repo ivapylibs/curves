@@ -12,7 +12,7 @@ from time import perf_counter
 vMin =  5
 vMax = 10
 maxG = 4
-tf   = 2
+tf   = 3
 order = 4
 
 
@@ -54,11 +54,11 @@ tic = perf_counter()
 fp1.optimizeTimePoly()
 toc = perf_counter()
 print("Time optimization took: ", toc-tic, " seconds")
-
+x = fp1.evalPos(t)
+print("Final X: ", x[0,-1])
 plt.figure()
 plt.title("Speed")
 v = fp1.evalVel(t)
-print(np.cumsum(v[0,:])*(tf/100))
 
 v2 = fp2.evalVel(t)
 plt.plot(t,np.linalg.norm(v, 2, 0), 'r-')

@@ -70,28 +70,31 @@ class TimePolyFactor(minisam.NumericalFactor):
 
 
 class Flight2D:
-    def __init__(self, startPose:SE2, endPose:SE2, bezierOrder=3, duration=1, optParams=FlightOptParams()):
+    def __init__(self, startPose, endPose, bezierOrder=3, duration=1, optParams=FlightOptParams()):
         self.startPose = startPose
         self.endPose = endPose
         self.bezier = Bezier.Bezier(bezierOrder)
         self.duration = duration
         self.optParams = optParams
         self.timePolyCoeffs = np.array([0, 0, 0, 0, 1, 0]) # By default, polynomial does not change s input
+        self.dimension = len(startPose.getTranslation())
 
     def constructBezierPath(self, param):
         # Changes based on dimension
         #constructBezierPath uses parameterization to define bezier curve
         pts = np.empty((2,self.bezier.order+1))
+        unit = np.zeros(self.dimension,)
+        unit[0] = 1
 
         if(self.bezier.order == 3): # 3rd Order curve with 2 free points
-            pos2 = self.startPose * ( param[0] * np.array([1,0]))  
-            pos3 = self.endPose   * (-param[1] * np.array([1,0]))
+            pos2 = self.startPose * ( param[0] * unit)  
+            pos3 = self.endPose   * (-param[1] * unit)
             pts = np.hstack((self.startPose.getTranslation(), pos2, pos3, self.endPose.getTranslation()))
 
         elif(self.bezier.order > 3):
-            d1 = self.startPose * ( param[0] * np.array([1,0]))
+            d1 = self.startPose * ( param[0] * unit)
             posmid = np.reshape(param[2:], (2, self.bezier.order-3))
-            d2 = self.endPose   * (-param[1] * np.array([1,0]))
+            d2 = self.endPose   * (-param[1] * unit)
             pts = np.hstack((self.startPose.getTranslation(), d1, posmid, d2, self.endPose.getTranslation()))
 
         self.bezier.setControlPoints(pts)
@@ -115,7 +118,7 @@ class Flight2D:
 
             if(self.optParams.init != None and self.optParams.final == None):
                 print("Init fixed")
-                init_values.add(minisam.key('p', 0), np.ones((1+2*(self.bezier.order-3),)))
+                init_values.add(minisam.key('p', 0), np.ones((1+self.dimension*(self.bezier.order-3),)))
 
                 opt.optimize(graph, init_values, values)
                 d = np.array([self.optParams.init/ self.bezier.order])
@@ -124,7 +127,7 @@ class Flight2D:
 
             elif(self.optParams.init != None and self.optParams.final != None):
                 print("Init and Final fixed")
-                init_values.add(minisam.key('p', 0), np.ones((2*(self.bezier.order-3),)))
+                init_values.add(minisam.key('p', 0), np.ones((self.dimension*(self.bezier.order-3),)))
 
                 opt.optimize(graph, init_values, values)
                 d = np.array([self.optParams.init/ self.bezier.order, self.optParams.final / self.bezier.order])
@@ -132,7 +135,7 @@ class Flight2D:
                     self.bezier.order, np.hstack((d,values.at(minisam.key('p', 0)))))
             else:
                 print("Fully Unconstrained")
-                init_values.add(minisam.key('p', 0), np.ones((2+2*(self.bezier.order-3),)))
+                init_values.add(minisam.key('p', 0), np.ones((2+self.dimension*(self.bezier.order-3),)))
 
                 opt.optimize(graph, init_values, values)
                 self.bezier = Bezier.constructBezierPath(self.startPose, self.endPose,

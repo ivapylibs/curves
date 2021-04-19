@@ -1,4 +1,6 @@
 import numpy as np
+import sys
+sys.path.append('./')
 import Bezier
 from Lie import SE2
 from matplotlib import pyplot as plt
