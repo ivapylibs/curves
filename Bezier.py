@@ -2,7 +2,7 @@ import numpy as np # For basic use
 from scipy.linalg import pascal
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-
+import pdb
 
 class Bezier:
     def __init__(self, order):
@@ -41,8 +41,11 @@ class Bezier:
 
         if(dimension == 1):
             raise RuntimeError('Curvature cannot be calculated for 1D curves')
-        elif (dimension == 2):
-            return np.divide(np.cross(v, a, 0, 0), (np.linalg.norm(v,2,0)**3))
+        elif(dimension == 2):
+            return np.divide(np.linalg.norm(np.cross(v, a, 0, 0), 2, 0), (np.linalg.norm(v,2,0)**3))
+        elif(dimension == 3):
+            return np.divide(np.linalg.norm(np.cross(v, a, 0, 0), 2, 1), (np.linalg.norm(v,2,0)**3))
+            
 
     def plot(self, axes=None):
         dimension = len(self.Q[:,0])
@@ -116,7 +119,7 @@ def constructBezierPath(startPose, endPose, order, param):
 
     elif(order > 3):
         d1 = startPose * ( param[0] * unit)
-        posmid = np.reshape(param[2:], (2, order-3))
+        posmid = np.reshape(param[2:], (dimension, order-3))
         d2 = endPose   * (-param[1] * unit)
         pts = np.hstack((startPose.getTranslation(), d1, posmid, d2, endPose.getTranslation()))
 

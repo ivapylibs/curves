@@ -27,6 +27,7 @@ class BezierCurveFactor(minisam.NumericalFactor):
         self._order = order
         self.lossFunction = loss
         self.optParams = optParams
+        self.dimension = len(self._start.getTranslation())
 
     # make a deep copy
     def copy(self):
@@ -35,7 +36,7 @@ class BezierCurveFactor(minisam.NumericalFactor):
     # error = Bezier cost function
     def error(self, variables):
         my_params = variables.at(self.keys()[0])
-        params = np.empty((2*(self._order-3) + 2, ))
+        params = np.empty((self.dimension*(self._order-3) + 2, ))
         if(self.optParams.init != None and self.optParams.final == None):
             params[0] = self.optParams.init/self._order
             params[1:] = my_params
@@ -46,7 +47,7 @@ class BezierCurveFactor(minisam.NumericalFactor):
         else:
             params = my_params
         b = Bezier.constructBezierPath(self._start, self._end, self._order, params)
-        return np.array([Flight2D.BezierCostFunction(b, self.optParams)])
+        return np.array([Flight.BezierCostFunction(b, self.optParams)])
 
 class TimePolyFactor(minisam.NumericalFactor):
     def __init__(self, key, curve, minSpd, maxSpd, maxGs, loss):
@@ -64,12 +65,12 @@ class TimePolyFactor(minisam.NumericalFactor):
     # error = Bezier cost function
     def error(self, variables):
         my_params = variables.at(self.keys()[0])
-        coeffs = Flight2D.gen5thTimePoly(my_params)
-        cost = Flight2D.TimeCostFunction(self._curve, coeffs, self._minSpd, self._maxSpd, self._maxGs)
+        coeffs = Flight.gen5thTimePoly(my_params)
+        cost = Flight.TimeCostFunction(self._curve, coeffs, self._minSpd, self._maxSpd, self._maxGs)
         return np.array([cost])
 
 
-class Flight2D:
+class Flight:
     def __init__(self, startPose, endPose, bezierOrder=3, duration=1, optParams=FlightOptParams()):
         self.startPose = startPose
         self.endPose = endPose
@@ -82,7 +83,7 @@ class Flight2D:
     def constructBezierPath(self, param):
         # Changes based on dimension
         #constructBezierPath uses parameterization to define bezier curve
-        pts = np.empty((2,self.bezier.order+1))
+        pts = np.empty((self.dimension,self.bezier.order+1))
         unit = np.zeros(self.dimension,)
         unit[0] = 1
 
@@ -93,7 +94,7 @@ class Flight2D:
 
         elif(self.bezier.order > 3):
             d1 = self.startPose * ( param[0] * unit)
-            posmid = np.reshape(param[2:], (2, self.bezier.order-3))
+            posmid = np.reshape(param[2:], (self.dimension, self.bezier.order-3))
             d2 = self.endPose   * (-param[1] * unit)
             pts = np.hstack((self.startPose.getTranslation(), d1, posmid, d2, self.endPose.getTranslation()))
 
@@ -175,7 +176,7 @@ class Flight2D:
         init_values.add(minisam.key('p', 0), np.ones((2,)))
 
         opt.optimize(graph, init_values, values)
-        self.timePolyCoeffs = Flight2D.gen5thTimePoly(values.at(minisam.key('p', 0)))
+        self.timePolyCoeffs = Flight.gen5thTimePoly(values.at(minisam.key('p', 0)))
 
     # In this function we use the time polynomial to "Stretch" s which is progress from 0-1
     def evalTimePoly(self, s):
@@ -194,11 +195,17 @@ class Flight2D:
         vs = (self.bezier.evalJet(s) * dsdt) / self.duration
         return vs
 
-    def plotCurve(self):
+    def plotControlPoints(self, axes=None):
+        self.bezier.plot(axes)
+
+    def plotCurve(self, axes=None):
         t = np.linspace(0,self.duration,100)
         x = (self.evalPos(t)).T
         x = x.T
-        plt.plot(x[0,:] ,x[1,:])
+        if(self.dimension == 2):
+            plt.plot(x[0,:] ,x[1,:])
+        elif(self.dimension == 3):
+            axes.plot3D(x[0,:] ,x[1,:], x[2,:])
 
     @staticmethod
     def BezierCostFunction(path:Bezier, optParams:FlightOptParams):

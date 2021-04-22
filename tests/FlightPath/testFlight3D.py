@@ -2,7 +2,7 @@ import sys
 sys.path.append('./') #TODO: Installation for bezier curve library
 
 import numpy as np
-from Lie import SE2
+from Lie import SE3
 from Flight import Flight, FlightOptParams
 from matplotlib import pyplot as plt
 from time import perf_counter
@@ -23,8 +23,17 @@ the =  np.pi/3
 phi = -np.pi/2
 
 
-gi = SE2()
-gf = SE2(x=r*np.array([[np.cos(the)],[np.sin(the)]]), R=SE2.rotationMatrix(the+phi))
+gi = SE3()
+#gf = SE2(x=r*np.array([[np.cos(the)],[np.sin(the)]]), R=SE2.rotationMatrix(the+phi))
+
+
+roll = np.pi/3
+pitch = np.pi/4
+yaw = np.pi/6
+R = np.matmul(np.matmul(SE3.RotZ(yaw), SE3.RotY(pitch)), SE3.RotX(roll))
+
+x = np.array([[3], [6], [2]])
+gf = SE3(R=R, x=x)
 
 optS = FlightOptParams(init=5, final=3)
 
@@ -41,8 +50,12 @@ fp2.optimizeBezierPath()
 
 t = np.linspace(0, tf, 100)
 
-fp1.plotControlPoints()
-fp1.plotCurve()
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+#fp1.bezier.plot(ax)
+fp1.plotControlPoints(ax)
+fp1.plotCurve(ax)
 plt.title("Curve")
 
 print("Path optimization took: ", toc-tic, " seconds")
