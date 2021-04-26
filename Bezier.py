@@ -1,11 +1,13 @@
-import numpy as np # For basic use
+import numpy as np
 from scipy.linalg import pascal
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from CurveBase import CurveBase
 import pdb
 
-class Bezier:
+class Bezier(CurveBase):
     def __init__(self, order):
+        super().__init__(self)
         self.order = order
         self._C = self.__compCoeffsBernstein(order)
 
@@ -20,6 +22,9 @@ class Bezier:
             # Do something?
         tVec = np.tile(t, (self.order+1,1)) ** np.tile((np.arange(0,self.order+1)[:, np.newaxis]), (1, len(t)))
         return np.matmul(np.matmul(self.Q,self._C),tVec)
+
+    def x(self, t):
+        return self.eval(t)
 
     def evalJet(self,t):
         vCurve = Bezier(self.order-1)
