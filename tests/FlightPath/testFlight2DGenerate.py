@@ -44,12 +44,10 @@ toc = perf_counter()
 t = np.linspace(startTime, endTime, 100)
 
 
-print("Path optimization took: ", toc-tic, " seconds")
 fp1.plotControlPoints()
 fp1.plotCurve()
 plt.title("Curve")
 
-print("Time optimization took: ", toc-tic, " seconds")
 x = fp1.evalPos(t)
 print("Final X: ", x[0,-1])
 plt.figure()
