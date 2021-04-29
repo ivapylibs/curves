@@ -84,7 +84,7 @@ class Flight(CurveBase):
         self.duration = tspan[1] - tspan[0]
         self.optParams = optParams
         self.timePolyCoeffs = np.array([0, 0, 0, 0, 1, 0]) # By default, polynomial does not change s input
-        self.dimension = len(startPose.getTranslation())
+        #self.dimension = len(startPose.getTranslation())
 
     def constructBezierPath(self, param):
         # Changes based on dimension

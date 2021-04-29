@@ -1,9 +1,10 @@
 import numpy as np
 from Flight import Flight, FlightOptParams
+from Lie import SE2
 from matplotlib import pyplot as plt
 
 class Flight2D(Flight):
-    def __init__(self, startPose, endPose, tspan = [0, 1], bezierOrder=3, optParams=FlightOptParams()):
+    def __init__(self, startPose=SE2(), endPose=SE2(), tspan = [0, 1], bezierOrder=3, optParams=FlightOptParams()):
         super().__init__(startPose, endPose, tspan, bezierOrder, optParams)
         self.dimension = 2
     
@@ -14,8 +15,9 @@ class Flight2D(Flight):
         plt.plot(x[0,:] ,x[1,:])
 
     def generate(self, t0, x0, t1, x1):
-        self.tspan = [x0, x1]
-        if(type(x0) == 'Lie.SE2.SE2'):
+        self.tspan = [t0, t1]
+        self.duration = t1 - t0
+        if(isinstance(x0, SE2)):
             self.startPose = x0
             self.endPose = x1
         elif(np.shape(x0) == (4,)):
@@ -26,6 +28,8 @@ class Flight2D(Flight):
 
             self.startPose = SE2(x=startX, R=startR)
             self.endPose = SE2(x=endX, R=endR)
+            self.optParams.init = np.linalg.norm(x0[1:4:2])
+            self.optParams.final = np.linalg.norm(x1[1:4:2])
         
         self.optimizeBezierPath()
         self.optimizeTimePoly()
