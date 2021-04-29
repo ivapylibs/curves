@@ -2,6 +2,9 @@ import numpy as np
 import Bezier
 from Lie import SE2
 from matplotlib import pyplot as plt
+from CurveBase import CurveBase
+import abc
+import pdb
 
 import minisam
 
@@ -50,32 +53,35 @@ class BezierCurveFactor(minisam.NumericalFactor):
         return np.array([Flight.BezierCostFunction(b, self.optParams)])
 
 class TimePolyFactor(minisam.NumericalFactor):
-    def __init__(self, key, curve, minSpd, maxSpd, maxGs, loss):
+    def __init__(self, key, curve, minSpd, maxSpd, maxGs, loss, ts, tf):
         minisam.NumericalFactor.__init__(self, 1, [key], loss)
         self._curve = curve
         self._minSpd = minSpd
         self._maxSpd = maxSpd
         self._maxGs = maxGs
         self._loss = loss
+        self._ts = ts
+        self._tf = tf
 
     # make a deep copy
     def copy(self):
-        return TimePolyFactor(self.keys()[0], self._curve, self._minSpd, self._maxSpd, self._maxGs, self._loss)
+        return TimePolyFactor(self.keys()[0], self._curve, self._minSpd, self._maxSpd, self._maxGs, self._loss, ts=self._ts, tf=self._tf)
 
     # error = Bezier cost function
     def error(self, variables):
         my_params = variables.at(self.keys()[0])
-        coeffs = Flight.gen5thTimePoly(my_params)
-        cost = Flight.TimeCostFunction(self._curve, coeffs, self._minSpd, self._maxSpd, self._maxGs)
+        coeffs = Flight.gen5thTimePoly(my_params, self._tf - self._ts)
+        cost = Flight.TimeCostFunction(self._curve, coeffs, self._minSpd, self._maxSpd, self._maxGs, [self._ts, self._tf])
         return np.array([cost])
 
-
-class Flight:
-    def __init__(self, startPose, endPose, bezierOrder=3, duration=1, optParams=FlightOptParams()):
+class Flight(CurveBase):
+    def __init__(self, startPose, endPose, tspan = [0, 1], bezierOrder=3, optParams=FlightOptParams()):
+        super().__init__(tspan)
         self.startPose = startPose
         self.endPose = endPose
         self.bezier = Bezier.Bezier(bezierOrder)
-        self.duration = duration
+        self.tspan = tspan
+        self.duration = tspan[1] - tspan[0]
         self.optParams = optParams
         self.timePolyCoeffs = np.array([0, 0, 0, 0, 1, 0]) # By default, polynomial does not change s input
         self.dimension = len(startPose.getTranslation())
@@ -118,7 +124,6 @@ class Flight:
             values = minisam.Variables()
 
             if(self.optParams.init != None and self.optParams.final == None):
-                print("Init fixed")
                 init_values.add(minisam.key('p', 0), np.ones((1+self.dimension*(self.bezier.order-3),)))
 
                 opt.optimize(graph, init_values, values)
@@ -127,7 +132,6 @@ class Flight:
                     self.bezier.order, np.hstack((d, values.at(minisam.key('p', 0)))))
 
             elif(self.optParams.init != None and self.optParams.final != None):
-                print("Init and Final fixed")
                 init_values.add(minisam.key('p', 0), np.ones((self.dimension*(self.bezier.order-3),)))
 
                 opt.optimize(graph, init_values, values)
@@ -135,7 +139,6 @@ class Flight:
                 self.bezier = Bezier.constructBezierPath(self.startPose, self.endPose,
                     self.bezier.order, np.hstack((d,values.at(minisam.key('p', 0)))))
             else:
-                print("Fully Unconstrained")
                 init_values.add(minisam.key('p', 0), np.ones((2+self.dimension*(self.bezier.order-3),)))
 
                 opt.optimize(graph, init_values, values)
@@ -143,18 +146,25 @@ class Flight:
                     self.bezier.order, values.at(minisam.key('p', 0)))
 
     @staticmethod
-    def gen5thTimePoly(cVec):
-        poly = np.zeros((6,))
-        poly[1] = 1
-        poly[2:4] = cVec
-        '''
-        poly[4] = -3*poly[2] - 2*poly[3]
-        poly[5] = 1-np.sum(poly[0:4])
-        '''
-        beta = np.matmul(np.linalg.inv(np.array([[4, 5], [1,1]])), np.array([[-2*cVec[0] - 3*cVec[1]], [-cVec[0] - cVec[1]]]))
-        poly[4:6] = beta[:,0]
-        poly = np.flip(poly)
-        return poly
+    def gen5thTimePoly(cVec, td):
+        if(td != 0):
+            b = np.array([0, 1-cVec[0]*td**2 - cVec[1]*td**3, 1, 1-2*cVec[0]*td - 3*cVec[1]*td**2])
+            b = np.reshape(b, (4,1))
+            A = np.array([
+            [1, 0, 0, 0],
+            [1, td, td**4, td**5],
+            [0, 1, 0, 0],
+            [0, 1, 4*td**3, 5*td**4],
+            ])
+            beta = np.matmul(np.linalg.inv(A), b)
+            
+            beta = beta.T
+            beta = np.squeeze(beta)
+            coeffs = np.flip(np.hstack((beta[0:2], cVec, beta[2:4])))
+            return coeffs
+            #self.timePolyCoeffs = fliplr(obj.timePolyCoeffs);
+        else:
+            return np.zeros((6,))
 
     def setDynConstraints(self, minSpd, maxSpd, maxGs):
         self.minSpd = minSpd
@@ -165,7 +175,7 @@ class Flight:
         graph=minisam.FactorGraph() 
         #loss = minisam.CauchyLoss.Cauchy(0.) # TODO: Options Struct
         loss= None
-        graph.add(TimePolyFactor(minisam.key('p', 0), self.bezier, self.minSpd, self.maxSpd, self.maxGs, loss))
+        graph.add(TimePolyFactor(minisam.key('p', 0), self.bezier, self.minSpd, self.maxSpd, self.maxGs, loss, ts=self.tspan[0], tf= self.tspan[1]))
 
         init_values = minisam.Variables()
 
@@ -176,37 +186,45 @@ class Flight:
         init_values.add(minisam.key('p', 0), np.ones((2,)))
 
         opt.optimize(graph, init_values, values)
-        self.timePolyCoeffs = Flight.gen5thTimePoly(values.at(minisam.key('p', 0)))
+        self.timePolyCoeffs = Flight.gen5thTimePoly(values.at(minisam.key('p', 0)), self.duration)
+        print(self.timePolyCoeffs)
+        #pdb.set_trace()
 
     # In this function we use the time polynomial to "Stretch" s which is progress from 0-1
-    def evalTimePoly(self, s):
-        s = np.polyval(self.timePolyCoeffs, s)
-        dsdt = np.polyval(np.polyder(self.timePolyCoeffs), s)
+    def evalTimePoly(self, t):
+        s = np.polyval(self.timePolyCoeffs, t)
+        #pdb.set_trace()
+        dsdt = np.polyval(np.polyder(self.timePolyCoeffs), t)
         return (s, dsdt)
 
     # t is real time here. The time polynomial gives progress (s) to input into bezier eval
     def evalPos(self, t):
-        (s, dsdt) = self.evalTimePoly(t / self.duration)
+        (s, dsdt) = self.evalTimePoly(t-self.tspan[0])
         return self.bezier.eval(s)
+
+    def x(self, t):
+        return evalPos(self, t)
 
     # same as evalPos but for velocity
     def evalVel(self, t):
-        (s, dsdt) = self.evalTimePoly(t / self.duration)
+        (s, dsdt) = self.evalTimePoly(t-self.tspan[0])
         vs = (self.bezier.evalJet(s) * dsdt) / self.duration
         return vs
 
     def plotControlPoints(self, axes=None):
         self.bezier.plot(axes)
 
+    @abc.abstractmethod
     def plotCurve(self, axes=None):
-        t = np.linspace(0,self.duration,100)
-        x = (self.evalPos(t)).T
-        x = x.T
-        if(self.dimension == 2):
-            plt.plot(x[0,:] ,x[1,:])
-        elif(self.dimension == 3):
-            axes.plot3D(x[0,:] ,x[1,:], x[2,:])
-
+        #t = np.linspace(self.tspan[0], self.tspan[1],100)
+        #x = (self.evalPos(t)).T
+        #x = x.T
+        #if(self.dimension == 2):
+        #    plt.plot(x[0,:] ,x[1,:])
+        #elif(self.dimension == 3):
+        #    axes.plot3D(x[0,:] ,x[1,:], x[2,:])
+        return
+    
     @staticmethod
     def BezierCostFunction(path:Bezier, optParams:FlightOptParams):
         # Cost function of 4 terms: total curvature, curvature variance, length, and speed variance
@@ -251,10 +269,10 @@ class Flight:
         return cost
     
     @staticmethod
-    def TimeCostFunction(path:Bezier, timePolyCoeffs, minSpd, maxSpd, maxGs):
+    def TimeCostFunction(path:Bezier, timePolyCoeffs, minSpd, maxSpd, maxGs, tspan):
         # Cost function of 4 terms: total curvature, curvature variance, length, and speed variance
         dt = 0.01
-        t = np.arange(0, 1, dt) # time step for evaulating cost
+        t = np.arange(0, tspan[1]-tspan[0], dt) # time step for evaulating cost
         tau = np.polyval(timePolyCoeffs, t)
         tauPrime = np.polyval(np.polyder(timePolyCoeffs), t)
 

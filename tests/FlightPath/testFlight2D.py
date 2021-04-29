@@ -3,7 +3,8 @@ sys.path.append('./') #TODO: Installation for bezier curve library
 
 import numpy as np
 from Lie import SE2
-from Flight import Flight, FlightOptParams
+from Flight import FlightOptParams
+from Flight2D import Flight2D
 from matplotlib import pyplot as plt
 from time import perf_counter
 
@@ -12,7 +13,9 @@ from time import perf_counter
 vMin =  5
 vMax = 10
 maxG = 4
-tf   = 3
+startTime = 3.5
+endTime   = 4
+tspan = [startTime, endTime]
 order = 4
 
 
@@ -26,10 +29,9 @@ phi = -np.pi/2
 gi = SE2()
 gf = SE2(x=r*np.array([[np.cos(the)],[np.sin(the)]]), R=SE2.rotationMatrix(the+phi))
 
-optS = FlightOptParams(init=5, final=3)
+optS = FlightOptParams(init=5, final=6)
 
-fp1 = Flight(gi, gf, order, tf, optParams=optS)
-fp2 = Flight(gi, gf, order, tf, optParams=optS)
+fp1 = Flight2D(gi, gf, bezierOrder = order, tspan= tspan, optParams=optS)
 
 
 
@@ -37,22 +39,21 @@ tic = perf_counter()
 fp1.optimizeBezierPath()
 toc = perf_counter()
 
-fp2.optimizeBezierPath()
+t = np.linspace(startTime, endTime, 100)
 
-t = np.linspace(0, tf, 100)
+
+print("Path optimization took: ", toc-tic, " seconds")
+
+fp1.setDynConstraints(vMin, vMax, maxG)
+
+tic = perf_counter()
+fp1.optimizeTimePoly()
+toc = perf_counter()
 
 fp1.plotControlPoints()
 fp1.plotCurve()
 plt.title("Curve")
 
-print("Path optimization took: ", toc-tic, " seconds")
-
-fp1.setDynConstraints(vMin, vMax, maxG)
-fp2.setDynConstraints(vMin, vMax, maxG)
-
-tic = perf_counter()
-fp1.optimizeTimePoly()
-toc = perf_counter()
 print("Time optimization took: ", toc-tic, " seconds")
 x = fp1.evalPos(t)
 print("Final X: ", x[0,-1])
@@ -60,8 +61,6 @@ plt.figure()
 plt.title("Speed")
 v = fp1.evalVel(t)
 
-v2 = fp2.evalVel(t)
 plt.plot(t,np.linalg.norm(v, 2, 0), 'r-')
-plt.plot(t,np.linalg.norm(v2, 2, 0), 'b-')
 plt.legend(['Optimized', 'Un-optimized'])
 plt.show()
