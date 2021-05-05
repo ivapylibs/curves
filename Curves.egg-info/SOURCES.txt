@@ -1,0 +1,10 @@
+setup.py
+./Bezier.py
+./CurveBase.py
+./Explicit.py
+./Flight.py
+./Flight2D.py
+Curves.egg-info/PKG-INFO
+Curves.egg-info/SOURCES.txt
+Curves.egg-info/dependency_links.txt
+Curves.egg-info/top_level.txt

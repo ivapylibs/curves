@@ -10,5 +10,8 @@ class Explicit(CurveBase):
         super().__init__(tspan)
         self.curveFunc = curveFunc
     
+    def segment(self, tspan):
+        return Explicit(self.curveFunc, tspan)
+    
     def x(self, t):
         return self.curveFunc(t)
