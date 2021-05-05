@@ -1,5 +1,5 @@
 import numpy as np
-from Flight import Flight, FlightOptParams
+from .Flight import Flight, FlightOptParams
 from Lie import SE2
 from matplotlib import pyplot as plt
 

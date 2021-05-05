@@ -2,7 +2,7 @@ import numpy as np
 from scipy.linalg import pascal
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from CurveBase import CurveBase
+from .CurveBase import CurveBase
 import pdb
 
 class Bezier(CurveBase):
@@ -99,34 +99,36 @@ class Bezier(CurveBase):
             endCol = B1[:,-1]
             tC = B1 * np.tile(endCol, (n+1,1))
         return tC
+    
+    @staticmethod
 
+    def constructBezierPath(startPose, endPose, order, param):
+        #constructBezierPath uses parameterization to define bezier curve
+        # param[0] = delta_0
+        # param[1] = delta_1
+        # param[2:] = points of each subsequent control point
 
-def constructBezierPath(startPose, endPose, order, param):
-    #constructBezierPath uses parameterization to define bezier curve
-    # param[0] = delta_0
-    # param[1] = delta_1
-    # param[2:] = points of each subsequent control point
-
-    dimension = len(startPose.getTranslation())
-    if(len(param) != 2+dimension*(order - 3)):
-        raise RuntimeError("Number of control points is incorrect")
-    pts = np.empty((1,1))
-    b = Bezier(order)
-    unit = np.zeros((dimension,))
-    unit[0] = 1
-
-    if(order == 3): # 3rd Order curve with 2 free points
+        dimension = len(startPose.getTranslation())
+        if(len(param) != 2+dimension*(order - 3)):
+            raise RuntimeError("Number of control points is incorrect")
+        pts = np.empty((1,1))
+        b = Bezier(order)
         unit = np.zeros((dimension,))
         unit[0] = 1
-        pos2 = startPose * ( param[0] * unit)
-        pos3 = endPose   * (-param[1] * unit)
-        pts = np.hstack((startPose.getTranslation(), pos2, pos3, endPose.getTranslation()))
 
-    elif(order > 3):
-        d1 = startPose * ( param[0] * unit)
-        posmid = np.reshape(param[2:], (dimension, order-3))
-        d2 = endPose   * (-param[1] * unit)
-        pts = np.hstack((startPose.getTranslation(), d1, posmid, d2, endPose.getTranslation()))
+        if(order == 3): # 3rd Order curve with 2 free points
+            unit = np.zeros((dimension,))
+            unit[0] = 1
+            pos2 = startPose * ( param[0] * unit)
+            pos3 = endPose   * (-param[1] * unit)
+            pts = np.hstack((startPose.getTranslation(), pos2, pos3, endPose.getTranslation()))
 
-    b.setControlPoints(pts)
-    return b
+        elif(order > 3):
+            d1 = startPose * ( param[0] * unit)
+            posmid = np.reshape(param[2:], (dimension, order-3))
+            d2 = endPose   * (-param[1] * unit)
+            pts = np.hstack((startPose.getTranslation(), d1, posmid, d2, endPose.getTranslation()))
+
+        b.setControlPoints(pts)
+        return b
+

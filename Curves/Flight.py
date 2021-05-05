@@ -1,10 +1,10 @@
 import numpy as np
-import Bezier
 from Lie import SE2
 from matplotlib import pyplot as plt
-from CurveBase import CurveBase
+from .CurveBase import CurveBase
 import abc
 import pdb
+import Curves.Bezier as Bezier
 
 import minisam
 

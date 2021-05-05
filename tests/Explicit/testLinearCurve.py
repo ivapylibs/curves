@@ -1,8 +1,8 @@
 import sys
-sys.path.append('./')
+#sys.path.append('./')
 
 import numpy as np
-from Explicit import Explicit
+import Curves.Explicit as Explicit
 from matplotlib import pyplot as plt
 
 tspan = [0, 1]

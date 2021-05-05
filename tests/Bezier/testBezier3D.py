@@ -1,11 +1,9 @@
 import numpy as np
-import sys
-sys.path.append('./')
-import Bezier
+import Curves.Bezier as Bezier
 from Lie import SE3
 from matplotlib import pyplot as plt
 
-b = Bezier.Bezier(3)
+b = Bezier(3)
 
 start = np.array([[0],[0]])
 end = np.array([[5],[5]])

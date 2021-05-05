@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.linalg import pascal
 from matplotlib import pyplot as plt
-from CurveBase import CurveBase
+from .CurveBase import CurveBase
 import pdb
 
 

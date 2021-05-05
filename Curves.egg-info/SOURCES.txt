@@ -1,9 +1,9 @@
 setup.py
-./Bezier.py
-./CurveBase.py
-./Explicit.py
-./Flight.py
-./Flight2D.py
+Curves/Bezier.py
+Curves/CurveBase.py
+Curves/Explicit.py
+Curves/Flight.py
+Curves/Flight2D.py
 Curves.egg-info/PKG-INFO
 Curves.egg-info/SOURCES.txt
 Curves.egg-info/dependency_links.txt
