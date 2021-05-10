@@ -1,10 +1,7 @@
-import sys
-sys.path.append('./') #TODO: Installation for bezier curve library
-
 import numpy as np
 from Lie import SE2
-from Flight import FlightOptParams
-from Flight2D import Flight2D
+from Curves.Flight2D import Flight2D
+from Curves.Flight import FlightOptParams
 from matplotlib import pyplot as plt
 from time import perf_counter
 
@@ -13,8 +10,8 @@ from time import perf_counter
 vMin =  5
 vMax = 10
 maxG = 4
-startTime = 3.5
-endTime   = 4
+startTime = 0
+endTime   = 2
 tspan = [startTime, endTime]
 order = 4
 
@@ -22,14 +19,14 @@ order = 4
 #==[2] Terminal poses.
 
 r   = 0.5*(vMin + vMax)
-the =  np.pi/3
-phi = -np.pi/2
+the =  np.pi/5
+phi = -np.pi/4
 
 
 gi = SE2()
 gf = SE2(x=r*np.array([[np.cos(the)],[np.sin(the)]]), R=SE2.rotationMatrix(the+phi))
 
-optS = FlightOptParams(init=5, final=6)
+optS = FlightOptParams(init=5, final=8)
 
 fp1 = Flight2D(gi, gf, bezierOrder = order, tspan= tspan, optParams=optS)
 
@@ -60,7 +57,12 @@ print("Final X: ", x[0,-1])
 plt.figure()
 plt.title("Speed")
 v = fp1.evalVel(t)
+speed = np.linalg.norm(v, 2, 0)
+print("Starting Speed: ", speed[0])
+print("Ending Speed: ", speed[-1])
+print(fp1.bezier.Q)
+print(fp1.timePolyCoeffs)
 
-plt.plot(t,np.linalg.norm(v, 2, 0), 'r-')
+plt.plot(t, speed, 'r-')
 plt.legend(['Optimized', 'Un-optimized'])
 plt.show()

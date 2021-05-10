@@ -1,10 +1,7 @@
-import sys
-sys.path.append('./') #TODO: Installation for bezier curve library
-
 import numpy as np
 from Lie import SE2
-from Flight import FlightOptParams
-from Flight2D import Flight2D
+import Curves.Flight2D as Flight2D
+from Curves.Flight import FlightOptParams
 from matplotlib import pyplot as plt
 from time import perf_counter
 

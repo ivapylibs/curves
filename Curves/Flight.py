@@ -208,7 +208,8 @@ class Flight(CurveBase):
     # same as evalPos but for velocity
     def evalVel(self, t):
         (s, dsdt) = self.evalTimePoly(t-self.tspan[0])
-        vs = (self.bezier.evalJet(s) * dsdt) / self.duration
+        vs = (self.bezier.evalJet(s) * dsdt)
+        print(s)
         return vs
 
     def plotControlPoints(self, axes=None):
@@ -216,13 +217,6 @@ class Flight(CurveBase):
 
     @abc.abstractmethod
     def plotCurve(self, axes=None):
-        #t = np.linspace(self.tspan[0], self.tspan[1],100)
-        #x = (self.evalPos(t)).T
-        #x = x.T
-        #if(self.dimension == 2):
-        #    plt.plot(x[0,:] ,x[1,:])
-        #elif(self.dimension == 3):
-        #    axes.plot3D(x[0,:] ,x[1,:], x[2,:])
         return
     
     @staticmethod
