@@ -20,8 +20,11 @@ class Bezier(CurveBase):
     def eval(self, t):
         #if(len(np.shape(t)) == 1):
             # Do something?
-        tVec = np.tile(t, (self.order+1,1)) ** np.tile((np.arange(0,self.order+1)[:, np.newaxis]), (1, len(t)))
+        if(np.isscalar(t)):
+            t = np.array(t)
+        tVec = np.tile(t, (self.order+1,1)) ** np.tile((np.arange(0,self.order+1)[:, np.newaxis]), (1, t.size))
         return np.matmul(np.matmul(self.Q,self._C),tVec)
+
 
     def x(self, t):
         return self.eval(t)

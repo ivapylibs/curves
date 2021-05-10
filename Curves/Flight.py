@@ -79,7 +79,7 @@ class Flight(CurveBase):
         super().__init__(tspan)
         self.startPose = startPose
         self.endPose = endPose
-        self.bezier = Bezier.Bezier(bezierOrder)
+        self.bezier = Bezier(bezierOrder)
         self.tspan = tspan
         self.duration = tspan[1] - tspan[0]
         self.optParams = optParams
@@ -187,7 +187,7 @@ class Flight(CurveBase):
 
         opt.optimize(graph, init_values, values)
         self.timePolyCoeffs = Flight.gen5thTimePoly(values.at(minisam.key('p', 0)), self.duration)
-        print(self.timePolyCoeffs)
+        #print(self.timePolyCoeffs)
         #pdb.set_trace()
 
     # In this function we use the time polynomial to "Stretch" s which is progress from 0-1
@@ -203,7 +203,7 @@ class Flight(CurveBase):
         return self.bezier.eval(s)
 
     def x(self, t):
-        return evalPos(self, t)
+        return self.evalPos(t)
 
     # same as evalPos but for velocity
     def evalVel(self, t):

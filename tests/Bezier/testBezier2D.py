@@ -22,6 +22,7 @@ v = b.evalJet(t)
 a = b.evalJet2(t)
 k = b.evalCurv(t)
 
+print(b.eval(0))
 
 
 start = SE2()
@@ -31,6 +32,7 @@ R = SE2.rotationMatrix(theta)
 x = np.array([[5], [4]])
 
 end = SE2(R=R, x=x)
+
 
 c = Curves.Bezier.constructBezierPath(start, end, 3, [2,1])
 c.plot()

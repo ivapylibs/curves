@@ -2,6 +2,7 @@ import numpy as np
 from .Flight import Flight, FlightOptParams
 from Lie import SE2
 from matplotlib import pyplot as plt
+import pdb
 
 class Flight2D(Flight):
     def __init__(self, startPose=SE2(), endPose=SE2(), tspan = [0, 1], bezierOrder=3, optParams=FlightOptParams()):
@@ -13,6 +14,11 @@ class Flight2D(Flight):
         x = (self.evalPos(t)).T
         x = x.T
         plt.plot(x[0,:] ,x[1,:])
+    
+    def x(self, t):
+        pos = self.evalPos(t)
+        vel = self.evalVel(t)
+        return np.vstack((pos[0,:], vel[0,:], pos[1,:], vel[1,:]))
 
     def generate(self, t0, x0, t1, x1):
         self.tspan = [t0, t1]
@@ -20,9 +26,11 @@ class Flight2D(Flight):
         if(isinstance(x0, SE2)):
             self.startPose = x0
             self.endPose = x1
-        elif(np.shape(x0) == (4,)):
+        elif(len(x0) == 4):
+            print("From Vec")
             startX = x0[0:4:2]
             endX = x1[0:4:2]
+            #pdb.set_trace()
             startR = SE2.rotationMatrix(np.arctan2(x0[3], x0[1]))
             endR = SE2.rotationMatrix(np.arctan2(x1[3], x1[1]))
 
