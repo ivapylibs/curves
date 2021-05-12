@@ -209,7 +209,6 @@ class Flight(CurveBase):
     def evalVel(self, t):
         (s, dsdt) = self.evalTimePoly(t-self.tspan[0])
         vs = (self.bezier.evalJet(s) * dsdt)
-        print(s)
         return vs
 
     def plotControlPoints(self, axes=None):
