@@ -1,6 +1,7 @@
 import numpy as np
 from .Flight import Flight, FlightOptParams
 from Lie import SE3
+from Lie.tangent import Element
 from matplotlib import pyplot as plt
 import pdb
 
@@ -26,9 +27,16 @@ class Flight3D(Flight):
         if(isinstance(x0, SE3)):
             self.startPose = x0
             self.endPose = x1
+        elif(isinstance(x0, Element)):
+            self.startPose = x0.base()
+            self.endPose = x1.base()
+            self.optParams.init = np.linalg.norm(x0.fiber())
+            self.optParams.final = np.linalg.norm(x1.fiber())
         elif(len(x0) == 6):
             print("From Vec")
             raise NotImplementedError("Vector generation not implemented yet!")
         
         self.optimizeBezierPath()
-        self.optimizeTimePoly()
+        self.timePolyCoeffs = np.array([0, 0, 0, 0, 1/(t1- t0), 0])
+        #pdb.set_trace()
+        #self.optimizeTimePoly()

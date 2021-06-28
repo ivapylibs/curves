@@ -143,7 +143,7 @@ class Flight(CurveBase):
                 print("Both Constrained")
                 initialGuess = linePts[:,2:-2].reshape((1,-1))
                 d =  self.duration*np.array([self.optParams.init/ self.bezier.order, self.optParams.final / self.bezier.order])
-                unit = np.zeros((self.dimension,1))
+                unit = np.zeros((self.dimension))
                 unit[0] = 1
                 pos2 = self.startPose * (d[0] * unit)
                 pos3 = self.endPose * (-d[1] * unit)
@@ -278,7 +278,7 @@ class Flight(CurveBase):
             agree = np.sum(angles*weight*v/(speeds + optParams.rho))
             cost += optParams.Wkdev * agree
 
-        print(cost)
+        #print(cost)
         #pdb.set_trace()
         return cost
     
