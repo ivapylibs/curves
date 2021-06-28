@@ -1,3 +1,4 @@
+from Curves import Flight
 import numpy as np
 import Curves
 import Curves.Bezier as Bezier
@@ -12,7 +13,7 @@ p1 = np.array([[1],[3]])
 p2 = np.array([[4],[5]])
 
 points2 = np.array([[4, 1, 9, 5],
-           [3, 1, -1, 5]])
+           [3, 1, 8, 5]])
 
 
 b.setControlPoints(points2)
@@ -22,7 +23,11 @@ v = b.evalJet(t)
 a = b.evalJet2(t)
 k = b.evalCurv(t)
 
-print(b.eval(0))
+print(v)
+print(a)
+print(k)
+optS = Flight.FlightOptParams(Wkdev=1)
+print(Flight.Flight.BezierCostFunction(b, optS))
 
 
 start = SE2()
@@ -35,6 +40,6 @@ end = SE2(R=R, x=x)
 
 
 c = Curves.Bezier.constructBezierPath(start, end, 3, [2,1])
-c.plot()
-c.plotCurve(np.linspace(0,1,100))
-plt.show()
+b.plot()
+b.plotCurve(np.linspace(0,1,100))
+#plt.show()

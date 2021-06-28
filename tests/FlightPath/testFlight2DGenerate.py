@@ -10,8 +10,8 @@ from time import perf_counter
 vMin =  5
 vMax = 10
 maxG = 4
-startTime = 3.5
-endTime   = 4
+startTime = 0
+endTime   = 2
 tspan = [startTime, endTime]
 order = 4
 
@@ -19,19 +19,23 @@ order = 4
 #==[2] Terminal poses.
 
 r   = 0.5*(vMin + vMax)
-the =  np.pi/3
-phi = -np.pi/2
+the =  np.pi/5
+phi = -np.pi/4
 
 
 gi = SE2()
 gf = SE2(x=r*np.array([[np.cos(the)],[np.sin(the)]]), R=SE2.rotationMatrix(the+phi))
 
-optS = FlightOptParams(init=5, final=6)
+optS = FlightOptParams(init=5, final=5)
 
-#fp1 = Flight2D(gi, gf, bezierOrder = order, tspan= tspan, optParams=optS)
-
-fp1 = Flight2D()
+fp1 = Flight2D(bezierOrder = order, optParams = optS)
+fp1.optParams.Wlen   = 0
+fp1.optParams.Wcurv  = 0
+fp1.optParams.Wkdev  = 0
+fp1.optParams.Wspdev = 1
+fp1.optParams.Wagree = 0
 fp1.setDynConstraints(vMin, vMax, 4)
+
 fp1.generate(startTime, gi, endTime, gf)
 
 tic = perf_counter()

@@ -32,6 +32,7 @@ class Bezier(CurveBase):
     def evalJet(self,t):
         vCurve = Bezier(self.order-1)
         vPts = self.order * np.diff(self.Q, axis=1)
+        #pdb.set_trace()
         vCurve.setControlPoints(vPts)
         return vCurve.eval(t)
 
@@ -50,10 +51,10 @@ class Bezier(CurveBase):
         if(dimension == 1):
             raise RuntimeError('Curvature cannot be calculated for 1D curves')
         elif(dimension == 2):
-            return np.divide(np.linalg.norm(np.cross(v, a, 0, 0), 2, 0), (np.linalg.norm(v,2,0)**3))
+            #pdb.set_trace()
+            return np.divide(np.abs(np.cross(v, a, 0, 0)), (np.linalg.norm(v,2,0)**3))
         elif(dimension == 3):
             return np.divide(np.linalg.norm(np.cross(v, a, 0, 0), 2, 1), (np.linalg.norm(v,2,0)**3))
-            
 
     def plot(self, axes=None):
         dimension = len(self.Q[:,0])
@@ -132,6 +133,7 @@ class Bezier(CurveBase):
             d2 = endPose   * (-param[1] * unit)
             pts = np.hstack((startPose.getTranslation(), d1, posmid, d2, endPose.getTranslation()))
 
+        #pdb.set_trace()
         b.setControlPoints(pts)
         return b
 

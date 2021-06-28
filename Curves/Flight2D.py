@@ -1,6 +1,8 @@
+import Lie
 import numpy as np
 from .Flight import Flight, FlightOptParams
 from Lie import SE2
+from Lie.tangent import Element
 from matplotlib import pyplot as plt
 import pdb
 
@@ -23,9 +25,15 @@ class Flight2D(Flight):
     def generate(self, t0, x0, t1, x1):
         self.tspan = [t0, t1]
         self.duration = t1 - t0
+        #pdb.set_trace()
         if(isinstance(x0, SE2)):
             self.startPose = x0
             self.endPose = x1
+        elif(isinstance(x0, Element)):
+            self.startPose = x0.base()
+            self.endPose = x1.base()
+            self.optParams.init = np.linalg.norm(x0.fiber())
+            self.optParams.final = np.linalg.norm(x1.fiber())
         elif(len(x0) == 4):
             print("From Vec")
             startX = x0[0:4:2]
@@ -38,6 +46,7 @@ class Flight2D(Flight):
             self.endPose = SE2(x=endX, R=endR)
             self.optParams.init = np.linalg.norm(x0[1:4:2])
             self.optParams.final = np.linalg.norm(x1[1:4:2])
-        
+
         self.optimizeBezierPath()
-        self.optimizeTimePoly()
+        self.timePolyCoeffs = np.array([0, 0, 0, 0, 1/(t1-t0), 0])
+        #self.optimizeTimePoly()

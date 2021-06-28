@@ -9,7 +9,7 @@ import Curves.Bezier as Bezier
 import minisam
 
 class FlightOptParams:
-    def __init__(self, dt = 0.01, Wcurv = 1, Wlen=500, Wagree = 0, Wspdev = 1, Wkdev = 1, rho = 0.001, init = None, final = None):
+    def __init__(self, dt = 0.01, Wcurv = 0, Wlen=0, Wagree = 0, Wspdev = 1, Wkdev = 0, rho = 0.001, init = None, final = None):
 
         self.dt = dt
 
@@ -23,7 +23,7 @@ class FlightOptParams:
         self.final = final
 
 class BezierCurveFactor(minisam.NumericalFactor):
-    def __init__(self, key, start, end, order, loss, optParams=FlightOptParams()):
+    def __init__(self, key, start, end, order, duration, loss=None, optParams=FlightOptParams()):
         minisam.NumericalFactor.__init__(self, 1, [key], loss)
         self._start = start
         self._end = end
@@ -31,21 +31,22 @@ class BezierCurveFactor(minisam.NumericalFactor):
         self.lossFunction = loss
         self.optParams = optParams
         self.dimension = len(self._start.getTranslation())
+        self.duration = duration
 
     # make a deep copy
     def copy(self):
-        return BezierCurveFactor(self.keys()[0], self._start, self._end, self._order, self.lossFunction, self.optParams)
+        return BezierCurveFactor(self.keys()[0], self._start, self._end, self._order, self.duration, self.lossFunction, self.optParams)
 
     # error = Bezier cost function
     def error(self, variables):
         my_params = variables.at(self.keys()[0])
         params = np.empty((self.dimension*(self._order-3) + 2, ))
         if(self.optParams.init != None and self.optParams.final == None):
-            params[0] = self.optParams.init/self._order
+            params[0] = self.duration*(self.optParams.init/self._order)
             params[1:] = my_params
         elif(self.optParams.init != None and self.optParams.final != None):
-            params[0] = self.optParams.init/self._order
-            params[1] = self.optParams.final/self._order
+            params[0] = self.duration*(self.optParams.init/self._order)
+            params[1] = self.duration*(self.optParams.final/self._order)
             params[2:] = my_params
         else:
             params = my_params
@@ -83,7 +84,7 @@ class Flight(CurveBase):
         self.tspan = tspan
         self.duration = tspan[1] - tspan[0]
         self.optParams = optParams
-        self.timePolyCoeffs = np.array([0, 0, 0, 0, 1, 0]) # By default, polynomial does not change s input
+        self.timePolyCoeffs = np.array([0, 0, 0, 0, 1/(tspan[1]-tspan[0]), 0]) # By default, polynomial does not change s input
         #self.dimension = len(startPose.getTranslation())
 
     def constructBezierPath(self, param):
@@ -109,12 +110,12 @@ class Flight(CurveBase):
     def optimizeBezierPath(self):
         if(self.bezier.order == 3 and self.optParams.init != None and self.optParams.final != None):
             self.bezier = Bezier.constructBezierPath(self.startPose, self.endPose, 
-                self.bezier.order, [self.optParams.init/self.bezier.order, self.optParams.final/self.bezier.order])
+                self.bezier.order, self.duration*np.array([self.optParams.init/self.bezier.order, self.optParams.final/self.bezier.order]))
         else:
             graph=minisam.FactorGraph() 
             #loss = minisam.CauchyLoss.Cauchy(0.) # TODO: Options Struct
             loss= None
-            graph.add(BezierCurveFactor(minisam.key('p', 0), self.startPose, self.endPose, self.bezier.order, loss, optParams=self.optParams))
+            graph.add(BezierCurveFactor(minisam.key('p', 0), self.startPose, self.endPose, self.bezier.order, self.duration, loss, optParams=self.optParams))
 
             init_values = minisam.Variables()
 
@@ -123,8 +124,15 @@ class Flight(CurveBase):
             opt = minisam.LevenbergMarquardtOptimizer(opt_param)
             values = minisam.Variables()
 
+            linePts = self.startPose.getTranslation() + \
+                np.arange(0,1+1/(self.bezier.order),1/(self.bezier.order))*(self.endPose.getTranslation()- self.startPose.getTranslation())
+            #pdb.set_trace()
+
             if(self.optParams.init != None and self.optParams.final == None):
-                init_values.add(minisam.key('p', 0), np.ones((1+self.dimension*(self.bezier.order-3),)))
+                # TODO: Initial Conditions
+                initialGuess = np.hstack((linePts[3:-2].reshape((1,-1)), 1))
+                #init_values.add(minisam.key('p', 0), np.ones((1+self.dimension*(self.bezier.order-3),)))
+                init_values.add(minisam.key('p', 0), initialGuess)
 
                 opt.optimize(graph, init_values, values)
                 d = np.array([self.optParams.init/ self.bezier.order])
@@ -132,14 +140,27 @@ class Flight(CurveBase):
                     self.bezier.order, np.hstack((d, values.at(minisam.key('p', 0)))))
 
             elif(self.optParams.init != None and self.optParams.final != None):
-                init_values.add(minisam.key('p', 0), np.ones((self.dimension*(self.bezier.order-3),)))
+                print("Both Constrained")
+                initialGuess = linePts[:,2:-2].reshape((1,-1))
+                d =  self.duration*np.array([self.optParams.init/ self.bezier.order, self.optParams.final / self.bezier.order])
+                unit = np.zeros((self.dimension,1))
+                unit[0] = 1
+                pos2 = self.startPose * (d[0] * unit)
+                pos3 = self.endPose * (-d[1] * unit)
+                v = (pos3 - pos2) / (self.bezier.order - 2)
+                initialGuess = pos2 + np.multiply(np.arange(1,self.bezier.order-3+1), v)
+                initialGuess = initialGuess.reshape((1,-1))
+                #pdb.set_trace()
+                init_values.add(minisam.key('p', 0), np.squeeze(initialGuess))
+                #init_values.add(minisam.key('p', 0), np.ones((self.dimension*(self.bezier.order-3),)))
 
                 opt.optimize(graph, init_values, values)
-                d = np.array([self.optParams.init/ self.bezier.order, self.optParams.final / self.bezier.order])
                 self.bezier = Bezier.constructBezierPath(self.startPose, self.endPose,
                     self.bezier.order, np.hstack((d,values.at(minisam.key('p', 0)))))
             else:
-                init_values.add(minisam.key('p', 0), np.ones((2+self.dimension*(self.bezier.order-3),)))
+                initialGuess = np.hstack((linePts[3:-2].reshape((1,-1))))
+                #init_values.add(minisam.key('p', 0), np.ones((2+self.dimension*(self.bezier.order-3),)))
+                init_values.add(minisam.key('p', 0), initialGuess)
 
                 opt.optimize(graph, init_values, values)
                 self.bezier = Bezier.constructBezierPath(self.startPose, self.endPose,
@@ -148,7 +169,7 @@ class Flight(CurveBase):
     @staticmethod
     def gen5thTimePoly(cVec, td):
         if(td != 0):
-            b = np.array([0, 1-cVec[0]*td**2 - cVec[1]*td**3, 1, 1-2*cVec[0]*td - 3*cVec[1]*td**2])
+            b = np.array([0, 1-cVec[0]*td**2 - cVec[1]*td**3, 1/td , 1/td -2*cVec[0]*td - 3*cVec[1]*td**2])
             b = np.reshape(b, (4,1))
             A = np.array([
             [1, 0, 0, 0],
@@ -187,8 +208,6 @@ class Flight(CurveBase):
 
         opt.optimize(graph, init_values, values)
         self.timePolyCoeffs = Flight.gen5thTimePoly(values.at(minisam.key('p', 0)), self.duration)
-        #print(self.timePolyCoeffs)
-        #pdb.set_trace()
 
     # In this function we use the time polynomial to "Stretch" s which is progress from 0-1
     def evalTimePoly(self, t):
@@ -221,7 +240,7 @@ class Flight(CurveBase):
     @staticmethod
     def BezierCostFunction(path:Bezier, optParams:FlightOptParams):
         # Cost function of 4 terms: total curvature, curvature variance, length, and speed variance
-        t = np.arange(0, 1, optParams.dt) # time step for evaulating cost
+        t = np.arange(0, 1+optParams.dt, optParams.dt) # time step for evaulating cost
         
         cost = 0
 
@@ -238,11 +257,11 @@ class Flight(CurveBase):
             cost += optParams.Wcurv * totalCurv
         
         if(optParams.Wkdev > 0):
-            curvDev = np.nanvar(k)
+            curvDev = np.nanvar(k, ddof=1)
             cost += optParams.Wkdev * curvDev
         
         if(optParams.Wspdev > 0):
-            spddev = np.nanvar(speeds)
+            spddev = np.nanvar(speeds, ddof=1)
             cost += optParams.Wspdev * spddev
 
         if(optParams.Wagree > 0):
@@ -259,6 +278,8 @@ class Flight(CurveBase):
             agree = np.sum(angles*weight*v/(speeds + optParams.rho))
             cost += optParams.Wkdev * agree
 
+        print(cost)
+        #pdb.set_trace()
         return cost
     
     @staticmethod
