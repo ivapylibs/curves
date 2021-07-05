@@ -1,5 +1,5 @@
 import numpy as np
-from Lie import SE2
+from Lie.group.SE2 import Homog as SE2
 import Curves.Flight2D as Flight2D
 from Curves.Flight import FlightOptParams
 from matplotlib import pyplot as plt

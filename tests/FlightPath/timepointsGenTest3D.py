@@ -1,6 +1,6 @@
 import numpy as np
 
-from Lie import SE3
+import Lie.group.SE3.Homog
 from Lie.tangent import Element
 import Curves.Flight3D as Flight3D
 import matplotlib.pyplot as plt
@@ -72,7 +72,7 @@ xActual = np.zeros((6,len(tVec)))
 fp = Flight3D(bezierOrder = bezierOrder)
 fp.optParams.Wlen   = 0
 fp.optParams.Wcurv  = 0
-fp.optParams.Wkdev  = 1
+fp.optParams.Wkdev  = 100
 fp.optParams.Wspdev = 1
 fp.optParams.Wagree = 0
 fp.optParams.doTimeWarp = False
@@ -90,7 +90,7 @@ def vec2Tangent(x):
 
     R = np.hstack((unitDir, y, z))
 
-    g = SE3(x=x[0:3], R=R)
+    g = Lie.group.SE3.Homog(x=x[0:3], R=R)
     return Element(g, x[3:])
 
 for t in np.arange(0, tSpan, th):

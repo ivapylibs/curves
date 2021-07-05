@@ -1,6 +1,6 @@
 import numpy as np
 
-from Lie import SE2
+import Lie.group.SE2.Homog
 from Lie.tangent import Element
 from numpy.core.numeric import isscalar
 import Curves.Flight2D as Flight2D
@@ -22,7 +22,7 @@ nPtsBezier = 100 # number of points to evaluate bezier curve at
 
 bezierOrder = 4
 
-curveType = 'circ'
+curveType = 'line'
 
 if(curveType == 'circ'):
     w0 = 1/4
@@ -71,7 +71,7 @@ def vec2Tangent(x):
     #print(x)
     s = x[0:2]
     angle = np.arctan2(x[3], x[2])
-    g = SE2(x=s, R=SE2.rotationMatrix(angle))
+    g = Lie.group.SE2.Homog(x=s, R=Lie.group.SE2.Homog.rotationMatrix(angle))
     return Element(g, x[2:])
 
 for t in np.arange(0, tSpan, th):
@@ -98,7 +98,7 @@ plt.plot(xActual[0,:], xActual[1,:])
 plt.gca().set_aspect('equal')
 
 plt.figure(2)
-plt.plot(tVec, xDesired[2:3,:].T, '-')
-plt.plot(tVec, xActual[2:3,:].T, '--')
+plt.plot(tVec, xDesired[2:,:].T, '-')
+plt.plot(tVec, xActual[2:,:].T, '--')
 #plt.gca().set_aspect('equal')
 plt.show()

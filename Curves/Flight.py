@@ -1,12 +1,17 @@
 import numpy as np
-from Lie import SE2
 from matplotlib import pyplot as plt
 from .CurveBase import CurveBase
 import abc
 import pdb
 import Curves.Bezier as Bezier
+from dataclasses import dataclass
+from typing import Callable
 
 import minisam
+
+@dataclass
+class FlightSpec:
+    vec2state: Callable = lambda x: x
 
 class FlightOptParams:
     def __init__(self, dt = 0.01, Wcurv = 0, Wlen=0, Wagree = 0, Wspdev = 1, Wkdev = 0, rho = 0.001, init = None, final = None):
@@ -76,7 +81,7 @@ class TimePolyFactor(minisam.NumericalFactor):
         return np.array([cost])
 
 class Flight(CurveBase):
-    def __init__(self, startPose, endPose, tspan = [0, 1], bezierOrder=3, optParams=FlightOptParams()):
+    def __init__(self, startPose, endPose, tspan = [0, 1], bezierOrder=3, optParams=FlightOptParams(), spec=FlightSpec()):
         super().__init__(tspan)
         self.startPose = startPose
         self.endPose = endPose
@@ -85,6 +90,8 @@ class Flight(CurveBase):
         self.duration = tspan[1] - tspan[0]
         self.optParams = optParams
         self.timePolyCoeffs = np.array([0, 0, 0, 0, 1/(tspan[1]-tspan[0]), 0]) # By default, polynomial does not change s input
+        self.spec = spec
+            
         #self.dimension = len(startPose.getTranslation())
 
     def constructBezierPath(self, param):
@@ -222,7 +229,8 @@ class Flight(CurveBase):
         return self.bezier.eval(s)
 
     def x(self, t):
-        return self.evalPos(t)
+        return self.spec.vec2state(np.vstack((self.evalPos(t), self.evalVel(t))))
+        #return np.vstack((self.evalPos(t), self.evalVel(t)))
 
     # same as evalPos but for velocity
     def evalVel(self, t):
