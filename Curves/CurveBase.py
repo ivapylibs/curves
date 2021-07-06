@@ -19,7 +19,7 @@ class CurveBase(abc.ABC):
         self.tspan = tspan
 
     def isValid(self, t):
-        return t <= tspan[1] and t >= tspan[0]
+        return t <= self.tspan[1] and t >= self.tspan[0]
 
     @abc.abstractmethod 
     def x(self, t):
