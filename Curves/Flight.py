@@ -157,11 +157,11 @@ class Flight(CurveBase):
                 v = (pos3 - pos2) / (self.bezier.order - 2)
                 initialGuess = pos2 + np.multiply(np.arange(1,self.bezier.order-3+1), v)
                 initialGuess = initialGuess.reshape((1,-1))
-                #pdb.set_trace()
                 init_values.add(minisam.key('p', 0), np.squeeze(initialGuess))
                 #init_values.add(minisam.key('p', 0), np.ones((self.dimension*(self.bezier.order-3),)))
 
                 opt.optimize(graph, init_values, values)
+                #pdb.set_trace()
                 self.bezier = Bezier.constructBezierPath(self.startPose, self.endPose,
                     self.bezier.order, np.hstack((d,values.at(minisam.key('p', 0)))))
             else:
@@ -221,22 +221,30 @@ class Flight(CurveBase):
         s = np.polyval(self.timePolyCoeffs, t)
         #pdb.set_trace()
         dsdt = np.polyval(np.polyder(self.timePolyCoeffs), t)
-        return (s, dsdt)
+        d2sdt2 = np.polyval(np.polyder(self.timePolyCoeffs, 2), t)
+        return s, dsdt, d2sdt2
 
     # t is real time here. The time polynomial gives progress (s) to input into bezier eval
     def evalPos(self, t):
-        (s, dsdt) = self.evalTimePoly(t-self.tspan[0])
+        (s, dsdt, _) = self.evalTimePoly(t-self.tspan[0])
         return self.bezier.eval(s)
-
-    def x(self, t):
-        return self.spec.vec2state(np.vstack((self.evalPos(t), self.evalVel(t))))
-        #return np.vstack((self.evalPos(t), self.evalVel(t)))
 
     # same as evalPos but for velocity
     def evalVel(self, t):
-        (s, dsdt) = self.evalTimePoly(t-self.tspan[0])
-        vs = (self.bezier.evalJet(s) * dsdt)
-        return vs
+        (s, dsdt, _) = self.evalTimePoly(t-self.tspan[0])
+        _, vs = self.bezier.evalJet(s)
+        v = vs * dsdt
+        return v
+
+    # same as evalPos but for velocity
+    def evalAcc(self, t):
+        (s, dsdt, d2sdt2) = self.evalTimePoly(t-self.tspan[0])
+        xs, vs, accs = self.bezier.evalJet2(s)
+        a = accs * (dsdt**2) + vs*d2sdt2
+        return a
+
+    def x(self, t):
+        return self.spec.vec2state(np.vstack((self.evalPos(t), self.evalVel(t), self.evalAcc(t))))
 
     def plotControlPoints(self, axes=None):
         self.bezier.plot(axes)
@@ -252,7 +260,7 @@ class Flight(CurveBase):
         
         cost = 0
 
-        v = path.evalJet(t)
+        _, v = path.evalJet(t)
         speeds = np.linalg.norm(v, 2, 0)
         k = path.evalCurv(t)
 
@@ -298,7 +306,7 @@ class Flight(CurveBase):
         tau = np.polyval(timePolyCoeffs, t)
         tauPrime = np.polyval(np.polyder(timePolyCoeffs), t)
 
-        v = path.evalJet(tau)
+        _, v = path.evalJet(tau)
         speeds = np.linalg.norm(v, 2, 0) * tauPrime # Speed in real units
 
 

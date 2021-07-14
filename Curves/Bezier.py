@@ -34,18 +34,18 @@ class Bezier(CurveBase):
         vPts = self.order * np.diff(self.Q, axis=1)
         #pdb.set_trace()
         vCurve.setControlPoints(vPts)
-        return vCurve.eval(t)
+        return self.eval(t), vCurve.eval(t)
 
     def evalJet2(self,t):
         aCurve = Bezier(self.order-2)
         vPts = self.order*np.diff(self.Q, axis=1)
         aPts = (self.order-1)*np.diff(vPts, axis=1)
         aCurve.setControlPoints(aPts)
-        return aCurve.eval(t)
+        x, v = self.evalJet(t)
+        return x, v, aCurve.eval(t)
 
     def evalCurv(self, t):
-        v = self.evalJet(t)
-        a = self.evalJet2(t)
+        _, v, a = self.evalJet2(t)
         dimension = np.shape(self.Q)[0]
 
         if(dimension == 1):

@@ -1,5 +1,5 @@
 import numpy as np
-from Lie import SE2
+import Lie.group.SE2.Homog as SE2
 from numpy.core.function_base import linspace
 from Curves.Flight import FlightOptParams
 from Curves import Flight2D

@@ -9,6 +9,7 @@ class Flight2D(Flight):
     def __init__(self, startPose=Lie.group.SE2.Homog(), endPose=Lie.group.SE2.Homog(), tspan = [0, 1], bezierOrder=3, optParams=FlightOptParams()):
         super().__init__(startPose, endPose, tspan, bezierOrder, optParams)
         self.dimension = 2
+        self.spec.vec2state = lambda x: x[0:-2, :]
     
     def plotCurve(self):
         t = np.linspace(self.tspan[0], self.tspan[1],100)

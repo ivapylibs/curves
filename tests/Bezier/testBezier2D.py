@@ -2,7 +2,7 @@ from Curves import Flight
 import numpy as np
 import Curves
 import Curves.Bezier as Bezier
-from Lie import SE2
+import Lie.group.SE2.Homog as SE2
 from matplotlib import pyplot as plt
 
 b = Bezier(3)
@@ -18,9 +18,7 @@ points2 = np.array([[4, 1, 9, 5],
 
 b.setControlPoints(points2)
 t = np.linspace(0,1,10)
-x = b.eval(t)
-v = b.evalJet(t)
-a = b.evalJet2(t)
+x, v, a = b.evalJet2(t)
 k = b.evalCurv(t)
 
 print(v)
